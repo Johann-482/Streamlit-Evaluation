@@ -2,12 +2,24 @@ import gradio as gr
 import pandas as pd
 import joblib
 import tempfile
+import os
+import threading
+import time
+import sys
 
 from tensorflow import keras
 from backend.imputation import impute_12_months
+from backend.rnn_model import CyclicGate
+
+def resource_path(relative_path):
+    """Get correct absolute path for PyInstaller bundled files."""
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
 # ================= LOAD SCALER =================
-scaler = joblib.load("saved_models/scaler.pkl")
+scaler_path = resource_path("saved_models/scaler.pkl")
+scaler = joblib.load(scaler_path)
 
 # ================= MODEL STORAGE =================
 loaded_models = {}
@@ -19,32 +31,41 @@ def load_models(files):
     loaded_models.clear()
 
     if not files:
-        return gr.Dropdown(choices=[], value=None)
+        return gr.update(choices=[], value=None)
 
     model_names = []
 
     for i, file in enumerate(files):
         try:
-            # Save temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".keras") as tmp:
-                tmp.write(file.read())
-                tmp_path = tmp.name
+            # 🔥 In Gradio v4, file is already a path
+            file_path = file.name if hasattr(file, "name") else str(file)
+            print("Uploaded filename raw repr:", repr(file.name))
 
-            # Load model
-            model = keras.models.load_model(tmp_path, compile=False)
+            # Load model directly
+            model = keras.models.load_model(
+                file_path,
+                compile=False,
+                custom_objects={"CyclicGate": CyclicGate}
+            )
 
-            # Use clean display name
-            name = f"Model {i+1}"
+            # Use real filename
+            name = os.path.basename(file_path)
+
             loaded_models[name] = model
             model_names.append(name)
 
         except Exception as e:
             print(f"Error loading model {i}: {e}")
 
-    # Force dropdown update properly
-    return gr.Dropdown(
+    if not model_names:
+        return gr.update(
+            choices=["❌ Failed to load models (check terminal)"],
+            value=None
+        )
+
+    return gr.update(
         choices=model_names,
-        value=model_names[0] if model_names else None
+        value=model_names[0]
     )
 
 
@@ -61,7 +82,7 @@ def run_imputation(csv_file, model_name):
 
         result_df = impute_12_months(df, model, scaler)
 
-        output_path = "imputed_output.csv"
+        output_path = os.path.join(tempfile.gettempdir(), "imputed_output.csv")
         result_df.to_csv(output_path, index=False)
 
         return "✅ Imputation completed!", output_path
@@ -70,40 +91,63 @@ def run_imputation(csv_file, model_name):
         return f"❌ Error: {str(e)}", None
 
 
+def exit_app():
+    def killer():
+        time.sleep(0.2)
+        os._exit(0)
+
+    threading.Thread(target=killer).start()
+    return "❌ Application terminated."
+
+
 # ================= UI =================
 
-with gr.Blocks() as app:
+with gr.Blocks(title="Imputation App") as app:
 
-    gr.Markdown("## 🧩 Imputation Tool (12 Months)")
-    gr.Markdown("Upload a CSV with EXACTLY 12 months (1 year).")
+    gr.Markdown("## 🧩 Rainfall Imputation Tool")
+    gr.Markdown("Upload trained models and a CSV with EXACTLY 12 months.")
 
-    model_files = gr.File(
-        label="Upload Model(s) (.keras)",
-        file_types=[".keras"],
-        file_count="multiple"
-    )
+    with gr.Row():
 
-    model_dropdown = gr.Dropdown(
-        label="Select Model",
-        choices=[]
-    )
+        # LEFT PANEL
+        with gr.Column(scale=1):
 
-    # 🔥 FIX: Proper dropdown update
+            model_files = gr.File(
+                label="📂 Upload Model(s) (.keras)",
+                file_types=[".keras"],
+                file_count="multiple"
+            )
+
+            model_dropdown = gr.Dropdown(
+                label="🤖 Select Model",
+                choices=[]
+            )
+
+            csv_input = gr.File(
+                label="📂 Upload CSV",
+                file_types=[".csv"]
+            )
+
+            run_button = gr.Button("🚀 Run Imputation", variant="primary")
+            exit_button = gr.Button("❌ Exit Application", variant="secondary")
+
+        # RIGHT PANEL
+        with gr.Column(scale=2):
+
+            status_output = gr.Textbox(
+                label="📜 Status",
+                lines=10,
+                interactive=False
+            )
+
+            file_output = gr.File(label="📥 Download Imputed CSV")
+
+    # 🔥 FIXED DROPDOWN UPDATE
     model_files.change(
         fn=load_models,
         inputs=model_files,
         outputs=model_dropdown
     )
-
-    csv_input = gr.File(
-        label="Upload CSV for Imputation",
-        file_types=[".csv"]
-    )
-
-    run_button = gr.Button("Run Imputation")
-
-    status_output = gr.Textbox(label="Status")
-    file_output = gr.File(label="Download Imputed CSV")
 
     run_button.click(
         fn=run_imputation,
@@ -111,6 +155,16 @@ with gr.Blocks() as app:
         outputs=[status_output, file_output]
     )
 
+    exit_button.click(
+        exit_app,
+        outputs=status_output,
+        js="window.close()"
+    )
+
+
 # ================= RUN =================
 if __name__ == "__main__":
-    app.launch()
+    app.queue().launch(
+        server_name="127.0.0.1",
+        inbrowser=True
+    )
