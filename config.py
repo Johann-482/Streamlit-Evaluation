@@ -1,0 +1,30 @@
+import numpy as np
+import tensorflow as tf
+
+DATA_PATH = None
+WINDOW_SIZE = 12
+TRAIN_MISSING_RATE = 0.15
+TEST_MISSING_RATE = 0.15
+SEED = 42
+
+BATCH_SIZE = 32
+EPOCHS = 80
+LEARNING_RATE = 1e-3
+
+PSO_EPOCHS = 25
+N_PARTICLES = 8
+N_ITERATIONS = 6
+W = 0.7
+C1 = 1.5
+C2 = 1.5
+
+GAN_NOISE_DIM = 64
+GAN_E2E_NOISE_DIM = 8
+GAN_LAMBDA_L1 = 10.0
+GAN_G_HIDDEN = 128
+GAN_D_HIDDEN = 128
+GAN_N_CRITIC = 5
+GAN_LAMBDA_GP = 10.0
+
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
