@@ -87,7 +87,8 @@ def load_uploaded_models(uploaded_files):
 
             model = safe_load_keras_model(tmp_path, custom_objects)
 
-            models[file.name.replace(".keras", "")] = model
+            model_name = file.name.replace(".keras", "").replace(".h5", "")
+            models[model_name] = model
 
         except Exception as e:
             st.error(f"Failed to load {file.name}: {e}")
@@ -123,8 +124,8 @@ uploaded_file = st.sidebar.file_uploader(
     "Upload CSV (Year, Month, Precipitation)", type=["csv"]
 )
 uploaded_models = st.sidebar.file_uploader(
-    "Upload trained models (.keras)",
-    type=["keras"],
+    "Upload trained models (.keras / .h5)",
+    type=["keras", "h5"],
     accept_multiple_files=True
 )
 
