@@ -22,6 +22,9 @@ def plot_imputation_scatter(true_series, predictions, missing_positions):
 
     # Predictions
     for name, pred in predictions.items():
+        if name == "Ground Truth":
+            continue
+
         fig.add_trace(go.Scatter(
             x=x,
             y=pred,
