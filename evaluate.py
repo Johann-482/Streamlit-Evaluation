@@ -27,6 +27,15 @@ from frontend.visualization import (
 )
 
 
+def masked_huber_loss():
+    def loss(y_true, y_pred):
+        y_true_precip = y_true[..., :1]
+        mask = y_true[..., -1:]
+        missing = 1.0 - mask
+        error = tf.keras.losses.huber(y_true_precip, y_pred)
+        error = tf.expand_dims(error, axis=-1)
+        return tf.reduce_mean(error * missing)
+    return loss
 
 def get_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
@@ -45,6 +54,7 @@ def load_uploaded_models(uploaded_files):
     custom_objects = {
         "CyclicGate": CyclicGate,
         "ReflectionPadding1D": ReflectionPadding1D,
+        "loss": masked_huber_loss(),
     }
 
     for file in uploaded_files:
