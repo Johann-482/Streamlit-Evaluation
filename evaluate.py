@@ -41,7 +41,28 @@ def get_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
+def safe_load_keras_model(path, custom_objects):
+    try:
+        # First attempt (normal load)
+        model = tf.keras.models.load_model(
+            path,
+            compile=False,
+            custom_objects=custom_objects
+        )
+        return model
 
+    except Exception as e:
+        print(f"[Retry Load] Standard load failed: {e}")
+
+        # 🔥 Rebuild manually (critical for LSTM issue)
+        from backend.rnn_model import build_baseline_seq2seq
+
+        # You MUST match training config
+        model = build_baseline_seq2seq(num_features=3)  # adjust if needed
+
+        model.load_weights(path)
+        return model
+    
 SAVE_DIR = get_path("saved_models")
 os.makedirs(SAVE_DIR, exist_ok=True)
 
@@ -64,12 +85,7 @@ def load_uploaded_models(uploaded_files):
                 tmp.write(file.read())
                 tmp_path = tmp.name
 
-            model = tf.keras.models.load_model(
-                tmp_path,
-                compile=False,
-                custom_objects=custom_objects,
-                safe_mode=False
-            )
+            model = safe_load_keras_model(tmp_path, custom_objects)
 
             models[file.name.replace(".keras", "")] = model
 
