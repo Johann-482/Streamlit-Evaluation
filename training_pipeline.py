@@ -80,10 +80,10 @@ def main(csv_path, missing_rate):
     rate = int(config.TRAIN_MISSING_RATE * 100)
 
     for name, model in {**rnn_models, **cnn_models, **gan_models}.items():
-        save_name = f"{name}_{rate}.keras"
+        save_name = f"{name}_{rate}.h5"
         save_path = os.path.join(SAVE_DIR, save_name)
 
-        model.save(save_path)
+        model.save(save_path, save_format="h5")
 
         print(f"Saved: {save_name}")
 

@@ -113,8 +113,8 @@ with gr.Blocks(title="Imputation App") as app:
         with gr.Column(scale=1):
 
             model_files = gr.File(
-                label="📂 Upload Model(s) (.keras)",
-                file_types=[".keras"],
+                label="📂 Upload Model(s) (.h5)",
+                file_types=[".h5"],
                 file_count="multiple"
             )
 

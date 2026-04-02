@@ -10,6 +10,7 @@ import contextlib
 import time
 import warnings
 import tensorflow as tf
+import socket
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore")
@@ -145,10 +146,21 @@ with gr.Blocks(title="Model Training App") as demo:
         js="window.close()"
     )
 
-
+def find_free_port(default=7860):
+    """Return a free port. If default is free, use it; otherwise pick another."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", default))
+            return default
+        except OSError:
+            s.bind(("127.0.0.1", 0))  # random free port
+            return s.getsockname()[1]
+        
 if __name__ == "__main__":
+    port = find_free_port(7860)
+
     demo.queue().launch(
         server_name="127.0.0.1",
-        server_port=7860,
+        server_port=port,
         inbrowser=True
     )

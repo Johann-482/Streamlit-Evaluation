@@ -1,14 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('backend', 'backend'), ('saved_models', 'saved_models'), ('config.py', '.')]
+datas = [('backend', 'backend'), ('saved_masks', 'saved_masks'), ('saved_models', 'saved_models'), ('config.py', '.')]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('gradio')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('gradio_client')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('tensorflow')
+tmp_ret = collect_all('gradio')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
