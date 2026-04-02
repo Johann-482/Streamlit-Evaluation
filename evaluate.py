@@ -55,6 +55,7 @@ def load_uploaded_models(uploaded_files):
         "CyclicGate": CyclicGate,
         "ReflectionPadding1D": ReflectionPadding1D,
         "loss": masked_huber_loss(),
+        "Huber": tf.keras.losses.Huber
     }
 
     for file in uploaded_files:
