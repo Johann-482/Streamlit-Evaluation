@@ -171,7 +171,11 @@ if st.sidebar.button("Run Evaluation Setup"):
     true_series = inverse_transform(true_series, data["scaler"])
 
     st.session_state.true_series = true_series
-    st.session_state.missing_positions = np.where(data["test_mask"] == 0)[0]
+    missing_positions = np.where(data["test_mask"] == 0)[0]
+
+    # 🔥 ALIGN WITH RECONSTRUCTED SERIES LENGTH
+    max_len = len(true_series)  # or pred_series (same length ideally)
+    st.session_state.missing_positions = missing_positions[missing_positions < max_len]
 
     st.session_state.data_ready = True
     st.session_state.models_loaded = False
