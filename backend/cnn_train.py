@@ -21,17 +21,24 @@ def masked_huber_loss():
 
     def loss(y_true, y_pred):
 
-        y_true_precip = y_true[..., :1]
-        mask = y_true[..., -1:]
+        # Extract components
+        y_true_precip = y_true[..., :1]   # rainfall
+        mask = y_true[..., -1:]           # observed (1) / missing (0)
 
         missing = 1.0 - mask
 
+        # Base Huber loss
         error = tf.keras.losses.huber(y_true_precip, y_pred)
-
-        # match dimensions
         error = tf.expand_dims(error, axis=-1)
 
-        return tf.reduce_mean(error * missing)
+        # 🔥 KEY: rainfall-based weighting
+        # Higher rainfall → higher penalty
+        weights = 1.0 + 3.0 * y_true_precip
+
+        # Apply mask + weights
+        weighted_error = error * missing * weights
+
+        return tf.reduce_mean(weighted_error)
 
     return loss
 

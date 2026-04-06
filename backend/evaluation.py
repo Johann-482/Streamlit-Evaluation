@@ -45,7 +45,6 @@ def reconstruct_series(windows):
 
     windows = np.array(windows)
 
-    # Ensure 2D shape (n_windows, window_size)
     if windows.ndim == 3:
         windows = windows[:, :, 0]
     elif windows.ndim != 2:
@@ -56,15 +55,22 @@ def reconstruct_series(windows):
 
     series_len = n_windows + window_size - 1
 
-    series = np.zeros(series_len)
-    counts = np.zeros(series_len)
+    # 🔥 STORE VALUES INSTEAD OF AVERAGING
+    from collections import defaultdict
+    storage = defaultdict(list)
 
     for i in range(n_windows):
         for j in range(window_size):
-            series[i + j] += float(windows[i, j])
-            counts[i + j] += 1
+            t = i + j
+            storage[t].append(float(windows[i, j]))
 
-    return series / (counts + 1e-8)
+    # 🔥 MEDIAN INSTEAD OF MEAN
+    series = np.zeros(series_len)
+
+    for t in range(series_len):
+        series[t] = np.median(storage[t])
+
+    return series
 
 
 def inverse_transform(series, scaler):

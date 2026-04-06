@@ -26,12 +26,14 @@ def masked_huber_loss():
 
         missing = 1.0 - mask
 
+        # Base Huber loss
         error = tf.keras.losses.huber(y_true_precip, y_pred)
-        # 🔥 CRITICAL FIX
         error = tf.expand_dims(error, axis=-1)
 
-        return tf.reduce_mean(error * missing)
-    
+        # 🔥 KEY FIX: rainfall-aware weighting
+        weights = 1.0 + 3.0 * y_true_precip
+
+        return tf.reduce_mean(error * missing * weights)
 
     return loss
 

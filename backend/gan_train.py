@@ -140,8 +140,11 @@ def train_baseline_gan(data):
 
                 missing = 1.0 - mask_precip
 
+                # 🔥 Rainfall-aware weighting
+                weights = 1.0 + 3.0 * real_precip
+
                 l1_loss = tf.reduce_mean(
-                    tf.abs((real_precip - fake_precip) * missing)
+                    tf.abs(real_precip - fake_precip) * missing * weights
                 )
 
                 g_loss = gan_loss + config.GAN_LAMBDA_L1 * l1_loss
@@ -249,8 +252,10 @@ def train_e2e_gan(data):
                 fake_precip = fake[:, :, :1]
                 mask_precip = mask[:, :, :1]
                 missing = 1.0 - mask_precip
+                weights = 1.0 + 3.0 * real_precip
+
                 l1_loss = tf.reduce_mean(
-                    tf.abs((real_precip - fake_precip) * missing)
+                    tf.abs(real_precip - fake_precip) * missing * weights
                 )
                 g_loss = adv_loss + config.GAN_LAMBDA_L1 * l1_loss
 
@@ -381,8 +386,10 @@ def train_wgan_gp(data):
 
             missing = 1.0 - mask_precip
 
+            weights = 1.0 + 3.0 * real_precip
+
             l1_loss = tf.reduce_mean(
-                tf.abs((real_precip - fake_precip) * missing)
+                tf.abs(real_precip - fake_precip) * missing * weights
             )
 
             loss_g = adv_loss + config.GAN_LAMBDA_L1 * l1_loss

@@ -89,7 +89,7 @@ def apply_mar_mask(data, months, rate):
     # Combine seasonality + observed rainfall
     logits = (
         2.0 * (month_norm - 0.5) +   # seasonal effect
-        1.5 * (rainfall - 0.5)       # rainfall-dependent effect
+        0.5 * (rainfall - 0.5)       # rainfall-dependent effect
     )
 
     prob_missing = 1 / (1 + np.exp(-logits))
@@ -115,10 +115,13 @@ def apply_mar_mask(data, months, rate):
 """5. Window Creation"""
 
 def create_windows(arr):
+
     X, Y = [], []
     n = arr.shape[0]
 
-    for i in range(n - config.WINDOW_SIZE + 1):
+    stride = config.WINDOW_SIZE // 2  # 🔥 REDUCE OVERLAP
+
+    for i in range(0, n - config.WINDOW_SIZE + 1, stride):
         X.append(arr[i:i + config.WINDOW_SIZE])
         Y.append(arr[i:i + config.WINDOW_SIZE])
 
@@ -230,8 +233,23 @@ def preprocess_all(uploaded_df=None):
     # ----------------------------
     # FILL MISSING VALUES
     # ----------------------------
-    train_filled = np.nan_to_num(train_masked, nan=0.5)
-    test_filled = np.nan_to_num(test_masked, nan=0.5)
+    def fill_with_noise(data):
+        filled = data.copy()
+
+        col = filled[:, 0]  # precipitation only
+        mean = np.nanmean(col)
+        std = np.nanstd(col)
+
+        noise = np.random.normal(mean, std * 0.1, size=col.shape)
+
+        nan_mask = np.isnan(col)
+        col[nan_mask] = noise[nan_mask]
+
+        filled[:, 0] = col
+        return filled
+
+    train_filled = fill_with_noise(train_masked)
+    test_filled = fill_with_noise(test_masked)
 
     # ----------------------------
     # COMBINE WITH MASK
