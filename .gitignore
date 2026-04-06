@@ -5,3 +5,4 @@ clean-repo/
 *.h5
 *.npy
 *.csv
+*.txt
