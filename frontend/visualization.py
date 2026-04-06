@@ -34,11 +34,9 @@ def plot_imputation_scatter(true_series, predictions, missing_positions):
         ))
 
     # Missing points
-    valid_positions = [i for i in missing_positions if i < len(x)]
-
     fig.add_trace(go.Scatter(
-        x=[x[i] for i in valid_positions],
-        y=[true_series[i] for i in valid_positions],
+        x=[x[i] for i in missing_positions],  # align with month index
+        y=true_series[missing_positions],
         mode='markers',
         name='Missing Points',
         marker=dict(
