@@ -43,6 +43,8 @@ def is_gan_model(model):
 
 def reconstruct_series(windows):
 
+    import numpy as np
+
     windows = np.array(windows)
 
     if windows.ndim == 3:
@@ -50,25 +52,46 @@ def reconstruct_series(windows):
     elif windows.ndim != 2:
         raise ValueError(f"Unexpected window shape: {windows.shape}")
 
-    n_windows = windows.shape[0]
-    window_size = windows.shape[1]
-
+    n_windows, window_size = windows.shape
     series_len = n_windows + window_size - 1
 
-    # 🔥 STORE VALUES INSTEAD OF AVERAGING
-    from collections import defaultdict
-    storage = defaultdict(list)
+    # 🔥 Center-weighting (LESS smoothing bias)
+    center = window_size // 2
+    weights = np.array([
+        1.0 / (1 + abs(j - center)) for j in range(window_size)
+    ])
 
+    # Normalize weights
+    weights = weights / weights.sum()
+
+    # Storage
+    values = [[] for _ in range(series_len)]
+    weight_store = [[] for _ in range(series_len)]
+
+    # Collect predictions
     for i in range(n_windows):
         for j in range(window_size):
             t = i + j
-            storage[t].append(float(windows[i, j]))
+            values[t].append(windows[i, j])
+            weight_store[t].append(weights[j])
 
-    # 🔥 MEDIAN INSTEAD OF MEAN
+    # 🔥 Weighted median approximation via weighted mean
     series = np.zeros(series_len)
 
     for t in range(series_len):
-        series[t] = np.median(storage[t])
+
+        if len(values[t]) == 0:
+            series[t] = 0.0  # safety fallback
+            continue
+
+        v = np.array(values[t])
+        w = np.array(weight_store[t])
+
+        # Normalize weights per timestep
+        w = w / (w.sum() + 1e-8)
+
+        # Weighted average (less smoothing than simple mean)
+        series[t] = np.sum(v * w)
 
     return series
 
