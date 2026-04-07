@@ -42,7 +42,6 @@ def is_gan_model(model):
     return isinstance(model.input, list) and len(model.input) == 3
 
 def reconstruct_series(windows):
-
     import numpy as np
 
     windows = np.array(windows)
@@ -55,43 +54,29 @@ def reconstruct_series(windows):
     n_windows, window_size = windows.shape
     series_len = n_windows + window_size - 1
 
-    # 🔥 Center-weighting (LESS smoothing bias)
+    # 👉 Center index
     center = window_size // 2
-    weights = np.array([
-        1.0 / (1 + abs(j - center)) for j in range(window_size)
-    ])
 
-    # Normalize weights
-    weights = weights / weights.sum()
+    # Initialize with NaNs (important for fairness)
+    series = np.full(series_len, np.nan)
 
-    # Storage
-    values = [[] for _ in range(series_len)]
-    weight_store = [[] for _ in range(series_len)]
-
-    # Collect predictions
+    # Assign ONLY center values
     for i in range(n_windows):
-        for j in range(window_size):
-            t = i + j
-            values[t].append(windows[i, j])
-            weight_store[t].append(weights[j])
+        t = i + center
+        series[t] = windows[i, center]
 
-    # 🔥 Weighted median approximation via weighted mean
-    series = np.zeros(series_len)
+    # 🔧 Handle edges (no center coverage)
+    # Forward fill
+    for i in range(series_len):
+        if np.isnan(series[i]):
+            if i > 0:
+                series[i] = series[i - 1]
 
-    for t in range(series_len):
-
-        if len(values[t]) == 0:
-            series[t] = 0.0  # safety fallback
-            continue
-
-        v = np.array(values[t])
-        w = np.array(weight_store[t])
-
-        # Normalize weights per timestep
-        w = w / (w.sum() + 1e-8)
-
-        # Weighted average (less smoothing than simple mean)
-        series[t] = np.sum(v * w)
+    # Backward fill (in case beginning is NaN)
+    for i in range(series_len - 1, -1, -1):
+        if np.isnan(series[i]):
+            if i < series_len - 1:
+                series[i] = series[i + 1]
 
     return series
 
