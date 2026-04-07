@@ -119,7 +119,7 @@ def create_windows(arr):
     X, Y = [], []
     n = arr.shape[0]
 
-    stride = config.WINDOW_SIZE // 2  # 🔥 REDUCE OVERLAP
+    stride = 1
 
     for i in range(0, n - config.WINDOW_SIZE + 1, stride):
         X.append(arr[i:i + config.WINDOW_SIZE])
