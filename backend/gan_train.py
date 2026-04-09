@@ -141,7 +141,7 @@ def train_baseline_gan(data):
                 missing = 1.0 - mask_precip
 
                 # 🔥 Rainfall-aware weighting
-                weights = 1.0 + 3.0 * real_precip
+                weights = 1.0 + 1.0 * real_precip
 
                 l1_loss = tf.reduce_mean(
                     tf.abs(real_precip - fake_precip) * missing * weights
@@ -386,7 +386,7 @@ def train_wgan_gp(data):
 
             missing = 1.0 - mask_precip
 
-            weights = 1.0 + 3.0 * real_precip
+            weights = 1.0 + 1.0 * real_precip
 
             l1_loss = tf.reduce_mean(
                 tf.abs(real_precip - fake_precip) * missing * weights

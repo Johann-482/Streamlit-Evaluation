@@ -100,6 +100,9 @@ def inverse_transform(series, scaler):
 
     series = series.reshape(-1, 1)
 
+    # 🔥 SAFETY CLIP (prevents WGAN explosion)
+    series = np.clip(series, 0, 1)
+
     # Step 1: reverse MinMax scaling
     log_vals = scaler.inverse_transform(series)
 
@@ -109,16 +112,24 @@ def inverse_transform(series, scaler):
     return real_vals.flatten()
 
 
-def compute_metrics(true_series, pred_series, missing_positions):
+def compute_metrics_window(y_true, y_pred, mask_windows):
 
-    true_vals = true_series[missing_positions]
-    pred_vals = pred_series[missing_positions]
+    # Only evaluate missing values
+    missing = (mask_windows.squeeze(-1) == 0)
+
+    true_vals = y_true[:, :, 0][missing]
+    pred_vals = y_pred[missing]
 
     rmse = np.sqrt(np.mean((true_vals - pred_vals) ** 2))
     mae = np.mean(np.abs(true_vals - pred_vals))
-    mase_val = mase(true_vals, pred_vals, true_series, missing_positions)
 
-    return rmse, mae, mase_val
+    # MASE (use full true series flattened)
+    flat_true = y_true[:, :, 0].flatten()
+    naive_error = np.mean(np.abs(flat_true[1:] - flat_true[:-1]))
+
+    mase = mae / (naive_error + 1e-8)
+
+    return rmse, mae, mase
 
 def naive_mae(true_series):
     diffs = np.abs(true_series[1:] - true_series[:-1])
@@ -167,7 +178,7 @@ def predict_seq_model(model, X_test, mask_windows):
 
     final = mask * observed + (1 - mask) * preds
 
-    return reconstruct_series(final)
+    return final, preds
 
 
 def predict_gan(generator, X_test, test_mask_windows):
@@ -235,4 +246,4 @@ def predict_gan(generator, X_test, test_mask_windows):
 
     final = mask * observed + (1 - mask) * window_preds
 
-    return reconstruct_series(final)
+    return final, window_preds

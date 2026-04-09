@@ -14,7 +14,7 @@ from backend.evaluation import (
     predict_seq_model,
     inverse_transform,
     reconstruct_series,
-    compute_metrics,
+    compute_metrics_window,
     compute_relative_improvement,
     is_gan_model
 )
@@ -26,6 +26,42 @@ from frontend.visualization import (
     show_family_metrics_and_improvement
 )
 
+def compute_metrics_switchable(y_true, y_pred, mask_windows, scaler, mode="scaled"):
+    """
+    Compute metrics either in:
+    - 'scaled' (log + normalized)
+    - 'real' (mm scale)
+    """
+
+    missing = (mask_windows.squeeze(-1) == 0)
+
+    true_vals = y_true[:, :, 0][missing]
+    pred_vals = y_pred[missing]
+
+    # ----------------------------
+    # SWITCH: REAL SPACE
+    # ----------------------------
+    if mode == "real":
+        true_vals = inverse_transform(true_vals, scaler)
+        pred_vals = inverse_transform(pred_vals, scaler)
+
+    # ----------------------------
+    # METRICS
+    # ----------------------------
+    rmse = np.sqrt(np.mean((true_vals - pred_vals) ** 2))
+    mae = np.mean(np.abs(true_vals - pred_vals))
+
+    # MASE (always computed in same space as values)
+    flat_true = y_true[:, :, 0].flatten()
+
+    if mode == "real":
+        flat_true = inverse_transform(flat_true, scaler)
+
+    naive_error = np.mean(np.abs(flat_true[1:] - flat_true[:-1]))
+
+    mase = mae / (naive_error + 1e-8)
+
+    return rmse, mae, mase
 
 def masked_huber_loss():
     def loss(y_true, y_pred):
@@ -134,6 +170,11 @@ missing_rate_choice = st.sidebar.radio(
     ["15%", "25%", "50%"],
     index=1
 )
+metric_mode = st.sidebar.radio(
+    "Metric Mode",
+    ["Scaled (log-based)", "Real (mm)"],
+    index=0
+)
 
 missing_rate_map = {"15%": 0.15, "25%": 0.25, "50%": 0.50}
 selected_rate = missing_rate_map[missing_rate_choice]
@@ -203,18 +244,38 @@ if st.sidebar.button("Load & Precompute Models"):
 
         for name, model in models.items():
             if is_gan_model(model):
-                pred = predict_gan(model, st.session_state.X_test, st.session_state.test_mask_windows)
+                final_windows, raw_preds = predict_gan(
+                    model,
+                    st.session_state.X_test,
+                    st.session_state.test_mask_windows
+                )
             else:
-                pred = predict_seq_model(model, st.session_state.X_test, st.session_state.test_mask_windows)
+                final_windows, raw_preds = predict_seq_model(
+                    model,
+                    st.session_state.X_test,
+                    st.session_state.test_mask_windows
+                )
 
-            pred = inverse_transform(pred, st.session_state.scaler)
-            preds[name] = pred
+            # ✅ UNBIASED METRICS (WINDOW LEVEL)
+            mode = "scaled" if metric_mode == "Scaled (log-based)" else "real"
 
-            rmse, mae, mase = compute_metrics(
-                st.session_state.true_series,
-                pred,
-                st.session_state.missing_positions
+            rmse, mae, mase = compute_metrics_switchable(
+                st.session_state.Y_test,
+                raw_preds,
+                st.session_state.test_mask_windows,
+                st.session_state.scaler,
+                mode=mode
             )
+
+            metrics[name] = {"RMSE": rmse, "MAE": mae, "MASE": mase}
+
+            # ----------------------------
+            # 🔵 RECONSTRUCTION (ONLY FOR PLOTTING)
+            # ----------------------------
+            reconstructed = reconstruct_series(final_windows)
+            reconstructed = inverse_transform(reconstructed, st.session_state.scaler)
+
+            preds[name] = reconstructed
 
             metrics[name] = {"RMSE": rmse, "MAE": mae, "MASE": mase}
 
@@ -319,7 +380,7 @@ elif st.session_state.models_loaded:
     if len(selected_models) > 0:
         df = pd.DataFrame({k: st.session_state.metrics[k] for k in selected_models}).T
 
-        st.subheader("Metrics")
+        st.subheader(f"Metrics ({metric_mode})")
         st.dataframe(df)
 
         show_family_metrics_and_improvement(df.to_dict("index"), compute_relative_improvement)

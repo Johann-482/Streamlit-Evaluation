@@ -98,6 +98,19 @@ class CyclicGate(layers.Layer):
 
         return x * (1.0 + gate)
 
+    # 🔥 REQUIRED FIX
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "init_cycle_length": self.init_cycle_length,
+        })
+        return config
+
+    # 🔥 (Optional but recommended)
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 def build_baseline_seq2seq(num_features, units1=64, units2=32, learning_rate=None):
 
     inp = keras.Input(

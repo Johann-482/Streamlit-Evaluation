@@ -19,7 +19,7 @@ def build_baseline_generator(flat_dim, window_size, n_features, cond_dim):
 
     x = layers.Dense(config.GAN_G_HIDDEN, activation='relu')(x)
 
-    gen_raw = layers.Dense(flat_dim, activation='linear')(x)
+    gen_raw = layers.Dense(flat_dim, activation='sigmoid')(x)
 
     # Reshape
     cond_seq = layers.Reshape((window_size, -1))(cond)
@@ -69,7 +69,7 @@ def build_e2e_generator(window_size, n_features):
     x = layers.GRU(64, return_sequences=True)(x)
 
     x = layers.Conv1D(32, 3, padding='same', activation='relu')(x)
-    gen_raw = layers.Conv1D(n_features, 1, activation='linear')(x)
+    gen_raw = layers.Conv1D(n_features, 1, activation='sigmoid')(x)
 
     # Split features
     precip = layers.Lambda(lambda x: x[:, :, :1])(cond)
@@ -195,8 +195,8 @@ def build_wgan_critic(flat_dim, window_size, n_features, cond_dim):
     ])
 
     # Critic network
+    x = layers.Conv1D(32, 3, padding='same', activation='relu')(x)
     x = layers.Conv1D(64, 3, padding='same', activation='relu')(x)
-    x = layers.Conv1D(128, 3, padding='same', activation='relu')(x)
     x = layers.GlobalAveragePooling1D()(x)
 
     x = layers.Dense(config.GAN_D_HIDDEN, activation='relu')(x)
