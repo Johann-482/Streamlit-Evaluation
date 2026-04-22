@@ -1,14 +1,14 @@
 import numpy as np
 import pandas as pd
 
-from backend.evaluation import is_gan_model
 from backend.evaluation import (
     predict_gan,
     predict_seq_model,
-    inverse_transform
+    inverse_transform,
+    reconstruct_series,
+    is_gan_model
 )
 from backend.preprocessing import create_windows
-
 
 def impute_12_months(uploaded_df, model, scaler):
 
@@ -54,11 +54,13 @@ def impute_12_months(uploaded_df, model, scaler):
 
 
     if is_gan_model(model):
-        pred_scaled = predict_gan(model, X_windows, mask_windows)
+        pred_scaled, _ = predict_gan(model, X_windows, mask_windows)
     else:
-        pred_scaled = predict_seq_model(model, X_windows, mask_windows)
+        pred_scaled, _ = predict_seq_model(model, X_windows, mask_windows)
 
-    pred_real = inverse_transform(pred_scaled.reshape(-1, 1), scaler)
+    reconstructed = reconstruct_series(pred_scaled)
+
+    pred_real = inverse_transform(reconstructed, scaler)
 
     final_output = precip_raw.copy()
     missing_idx = np.where(mask == 0)[0]

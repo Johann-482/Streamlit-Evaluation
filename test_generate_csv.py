@@ -6,8 +6,8 @@ file_path = "Rainfall_data.csv"
 # Choose missing rate: 0.15, 0.25, 0.50
 df_full, df_missing = generate_test_csv(
     file_path=file_path,
-    missing_rate=0.15,
-    save_path="test_15_missing.csv"
+    missing_rate=0.25,
+    save_path="test_25_missing.csv"
 )
 
 print("\n=== ORIGINAL DATA (GROUND TRUTH) ===")

@@ -43,10 +43,9 @@ def is_gan_model(model):
 
 def reconstruct_series(windows):
 
-    import numpy as np
-
     windows = np.array(windows)
 
+    # Ensure shape is (n_windows, window_size)
     if windows.ndim == 3:
         windows = windows[:, :, 0]
     elif windows.ndim != 2:
@@ -55,43 +54,46 @@ def reconstruct_series(windows):
     n_windows, window_size = windows.shape
     series_len = n_windows + window_size - 1
 
-    # 🔥 Center-weighting (LESS smoothing bias)
+    # Center-based window weights (ONLY for choosing dominant window)
     center = window_size // 2
-    weights = np.array([
+    pos_weights = np.array([
         1.0 / (1 + abs(j - center)) for j in range(window_size)
     ])
+    pos_weights = pos_weights / pos_weights.sum()
 
-    # Normalize weights
-    weights = weights / weights.sum()
-
-    # Storage
+    # Collect all predictions for each timestep
     values = [[] for _ in range(series_len)]
-    weight_store = [[] for _ in range(series_len)]
+    weights = [[] for _ in range(series_len)]
 
-    # Collect predictions
     for i in range(n_windows):
         for j in range(window_size):
             t = i + j
             values[t].append(windows[i, j])
-            weight_store[t].append(weights[j])
+            weights[t].append(pos_weights[j])
 
-    # 🔥 Weighted median approximation via weighted mean
+    # Final series
     series = np.zeros(series_len)
 
     for t in range(series_len):
 
-        if len(values[t]) == 0:
-            series[t] = 0.0  # safety fallback
+        v = np.array(values[t])
+        w = np.array(weights[t])
+
+        if len(v) == 0:
+            series[t] = 0.0
             continue
 
-        v = np.array(values[t])
-        w = np.array(weight_store[t])
-
-        # Normalize weights per timestep
+        # Normalize weights for this timestep
         w = w / (w.sum() + 1e-8)
 
-        # Weighted average (less smoothing than simple mean)
-        series[t] = np.sum(v * w)
+        # 🔥 Weighted median — preserves skew, avoids smoothing
+        sorted_idx = np.argsort(v)
+        v_sorted = v[sorted_idx]
+        w_sorted = w[sorted_idx]
+
+        cumulative = np.cumsum(w_sorted)
+        median_idx = np.searchsorted(cumulative, 0.5)
+        series[t] = v_sorted[median_idx]
 
     return series
 

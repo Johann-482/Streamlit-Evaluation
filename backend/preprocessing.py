@@ -236,14 +236,36 @@ def preprocess_all(uploaded_df=None):
     def fill_with_noise(data):
         filled = data.copy()
 
-        col = filled[:, 0]  # precipitation only
-        mean = np.nanmean(col)
-        std = np.nanstd(col)
+        col = filled[:, 0]               # precipitation column (scaled)
+        n = len(col)
 
-        noise = np.random.normal(mean, std * 0.1, size=col.shape)
+        for i in range(n):
 
-        nan_mask = np.isnan(col)
-        col[nan_mask] = noise[nan_mask]
+            if not np.isnan(col[i]):
+                continue
+
+            # local window (same idea as seasonality)
+            left = max(0, i - 12)
+            right = min(n, i + 12)
+
+            window_vals = col[left:right]
+            window_vals = window_vals[~np.isnan(window_vals)]
+
+            if len(window_vals) == 0:
+                # fallback to global distribution (same variables you used)
+                mean = np.nanmean(col)
+                std = np.nanstd(col)
+            else:
+                mean = np.mean(window_vals)
+                std = np.std(window_vals)
+
+            # sample noise — preserves skew, no smoothing
+            noise = np.random.normal(mean, std * 0.20)
+
+            # clamp to valid scaled range
+            noise = np.clip(noise, 0.0, 1.0)
+
+            col[i] = noise
 
         filled[:, 0] = col
         return filled
